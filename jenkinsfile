@@ -1,0 +1,172 @@
+pipeline {
+    agent any
+
+    environment {
+        SONAR_HOST_URL = 'https://sonarqube.devopseasylearning.uk/'
+        SONAR_PROJECT_KEY = 's7-sandargo-do-it-yourself'
+        SONAR_PROJECT_NAME = 'do-it-yourself'
+        SONAR_PROJECT_VERSION = '1.0'
+        SONAR_SOURCES = './do-it-yourself'
+        SONAR_QUALITYGATE_WAIT = 'true'
+        SONAR_SOURCE_ENCODING = 'UTF-8'
+        SONAR_JAVA_BINARIES = 'do-it-yourself/src/misc/style/java'
+    }
+
+    stages {
+        stage('Scan Java UI Code') {
+            agent {
+                docker {
+                    image 'maven:3.8.3-openjdk-17'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock' // Run the container as the root user
+                }
+            }
+            steps {
+                sh '''
+                cd do-it-yourself/src/ui/
+                ls -l
+                pwd
+                whoami
+                java -version
+                mvn test
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                ls -la
+                uname -r
+                pwd
+                '''
+            }
+        }
+
+        stage('Scan Golang Catalog Code') {
+            agent {
+                docker {
+                    image 'golang:1.22.5'
+                    args '-u root' // Run the container as the root user
+                }
+            }
+            steps {
+                sh '''
+                cd do-it-yourself/src/catalog/
+                ls -la 
+                whoami
+                env
+                go test
+                '''
+            }
+        }
+
+        stage('Scan Java Orders Code') {
+            agent {
+                docker {
+                    image 'maven:3.8.3-openjdk-17'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock' // Run the container as the root user
+                }
+            }
+            steps {
+                sh '''
+                cd do-it-yourself/src/orders/
+                ls -la 
+                whoami
+                uname -a
+                java -version
+                mvn test
+                '''
+            }
+        }
+
+        stage('Assets Coding') {
+            agent {
+                docker {
+                    image 'nginx:latest'
+                    args '-u root' // Run the container as the root user
+                }
+            }
+            steps {
+                sh '''
+                echo "Running assets coding stage"
+                cd /usr/share/nginx/html/
+                ls 
+                '''
+            }
+        }
+
+        stage('Scan Java Carts Code') {
+            agent {
+                docker {
+                    image 'maven:3.8.7-openjdk-18'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock' // Run the container as the root user
+                }
+            }
+            steps {
+                sh '''
+                cd do-it-yourself/src/cart/
+                ls -lah
+                pwd
+                whoami
+                java -version
+                mvn test
+                '''
+            }
+        }
+
+        stage('Scan Node Checkout Code') {
+            agent {
+                docker {
+                    image 'node:14'
+                    args '-u root' // Run the container as the root user
+                }
+            }
+            steps {
+                sh '''
+                cd do-it-yourself/src/checkout/
+                apt-get update
+                node --version
+                npm --version
+                ls -lha 
+                whoami
+                npm clean-install
+                npm test
+                '''
+            }
+        }
+
+        stage('SonarQube Scan') {
+            agent any
+            environment {
+                scannerHome = tool 'SonarQube Scanner' // Adjust the tool name if necessary
+            }
+            steps {
+                withSonarQubeEnv('SonarQube') { // Adjust the environment name if necessary
+                    sh '''
+                    ${scannerHome}/bin/sonar-scanner \
+                      -Dsonar.host.url=${SONAR_HOST_URL} \
+                      -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                      -Dsonar.projectName=${SONAR_PROJECT_NAME} \
+                      -Dsonar.projectVersion=${SONAR_PROJECT_VERSION} \
+                      -Dsonar.sources=${SONAR_SOURCES} \
+                      -Dsonar.qualitygate.wait=${SONAR_QUALITYGATE_WAIT} \
+                      -Dsonar.sourceEncoding=${SONAR_SOURCE_ENCODING} \
+                      -Dsonar.java.binaries=${SONAR_JAVA_BINARIES}
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline finished.'
+        }
+        success {
+            echo 'Pipeline succeeded!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}
